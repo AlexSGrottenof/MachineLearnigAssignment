@@ -1,0 +1,102 @@
+---
+title: "Proper Form"
+author: "Alex"
+date: "Sunday, December 27, 2015"
+output: html_document
+---
+##Obective
+The goal of this project is to predict if a person utilized proper form while performing Dumbbell Biceps Curl based on data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. The report describes how the model was built , discusses cross validation,the expected out of sample error, and  the choices made. The prediction model was also used to predict 20 different test cases. 
+
+##Data Collection
+As described by the experiment designers,"Six young health participants were asked to perform one set of 10 repetitions of the Unilateral Dumbbell Biceps Curl in five different fashions: exactly according to the specification (Class A), throwing the elbows to the front (Class B), lifting the dumbbell only halfway (Class C), lowering the dumbbell only halfway (Class D) and throwing the hips to the front (Class E)."
+
+## Data Preparation
+Two set of data were provided. a training set and a test set in the form of csv files. The data were read into R using the commands below.
+
+```{r}
+testing <- read.csv("C:/2Courses/MachineLearning/Week3/pml-testing.csv")
+df <- read.csv("C:/2Courses/MachineLearning/Week3/pml-training.csv")
+#Removed columns that were mostly "NA"s
+df2 <- df[, colSums(is.na(df)) < nrow(df)*0.5]
+#Removed columns that were mostly blanks
+df2 <- df2[, colSums(df2 !="") > nrow(df2)*0.5]
+#Removed all rows where new_window was "yes" since they seemed to
+#be summarized data from others rows
+df2 <-df2[df2$new_window=="no",]
+#Finally the data was subsetted to only keep the experimental #measurements
+myDataSub <- df2[,8:60]
+dim(myDataSub)
+```
+
+
+```{r}
+##load the caret package to perform Machine Learnig
+library(caret)
+#set a seed for reproducibility
+set.seed(12583)
+#split the Training dataset into a smaller training set and a
+#cross validation set
+inTrain <- createDataPartition(y=myDataSub$classe, p=0.75, list=FALSE )
+Train<- myDataSub[inTrain,]
+Val <- myDataSub[-inTrain,]
+```
+
+##Model Selection
+Given that the outcomes were categorical, a model using trees was
+attempted. The computation was quick, but the model was not accurate. The model could not differentiate between classes A and D. After doing some preprocessing the accuracy did not improve much. It was decided to move on to a Random Forest model. The 
+computation was time consuming (had to run over night), but the
+model was extremely accurate with error rate less than 0.7% within training sample and less than 1.0% in out of sample testing.
+
+```{r}
+#The modet was fitted using the commands below while keeping track
+#of how long the execution took. Since it took hours, a previously
+#saved model is loaded for this Rmarkdown file.
+
+##t0<-proc.time()
+##modFitrf<- train (classe ~., data=Train, method="rf")
+##print(elptime <- proc.time() - t0)
+##rfFit <- modFitrf
+##save(rfFit, file="rfFit")
+
+setwd("C:/2Courses/MachineLearning/Week3/Answers")
+load("rfFit")
+rfFit
+```
+
+```{r}
+#Predict against cross validation sample
+rfpred <-predict(rfFit, newdata=Val[,-53])
+confusionMatrix(rfpred, Val$classe)
+#Satisfied with model, no futher processing
+```
+
+##Test against 20 test cases and Programming Submission
+
+```{r}
+#Performprediction on 20 test samples
+rfpredtest <-predict(rfFit, newdata=testing)
+#Showpredicted values
+rfpredtest
+#Verify entry type (factor)
+str(rfpredtest); class(rfpredtest)
+#Convert to Character type for submision
+Results <- as.character(rfpredtest)
+#Recreate given function
+pml_write_files = function(x){
+  n = length(x)
+  for(i in 1:n){
+    filename = paste0("problem_id_",i,".txt")
+    write.table(x[i],file=filename,quote=FALSE,row.names=FALSE,col.names=FALSE)
+  }
+}
+#Ensure results will be saved where desired
+setwd("C:/2Courses/MachineLearning/Week3/Answers")
+#Create result files
+pml_write_files(Results)
+```
+
+##Conclusion
+All 20 preditions were correct. The model able to predict with 100% accuracy (based on the official testing dataset), wheter a
+subject perform the lift correctly, or which one of four incorrect movement they performed. In addition the following goals were accomplished: describes how the model was built , discusses cross validation,the expected out of sample error, and  the choices made.
+
+
